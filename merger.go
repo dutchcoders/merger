@@ -1,9 +1,6 @@
 package merger
 
-import (
-	"fmt"
-	"reflect"
-)
+import "reflect"
 
 // Merge merges the src object into dest
 func Merge(dest interface{}, src interface{}) error {
@@ -13,32 +10,24 @@ func Merge(dest interface{}, src interface{}) error {
 }
 
 type Merger interface {
-	// err checks fatal
 	Merge(dest reflect.Value, src reflect.Value) error
 }
 
+func unwrap(v reflect.Value) reflect.Value {
+	switch v.Kind() {
+	case reflect.Ptr:
+		return unwrap(v.Elem())
+	case reflect.Interface:
+		return unwrap(v.Elem())
+	}
+
+	return v
+}
+
 func merge(dest reflect.Value, src reflect.Value) error {
-	if src.Kind() == reflect.Ptr {
-		src = src.Elem()
-		return merge(dest, src)
-	}
+	src = unwrap(src)
+	dest = unwrap(dest)
 
-	if src.Kind() == reflect.Interface {
-		src = src.Elem() // reflect.ValueOf(src).Elem()
-		return merge(dest, src)
-	}
-
-	if dest.Kind() == reflect.Ptr {
-		dest = dest.Elem()
-		return merge(dest, src)
-	}
-
-	if dest.Kind() == reflect.Interface {
-		dest = dest.Elem() //reflect.ValueOf(dest).Elem()
-		return merge(dest, src)
-	}
-
-	fmt.Println("source kind", src.Kind())
 	switch src.Kind() {
 	case reflect.Func:
 		if !dest.CanSet() {
@@ -52,11 +41,7 @@ func merge(dest reflect.Value, src reflect.Value) error {
 			return err
 		}
 	case reflect.Struct:
-		fmt.Println("STRUCT")
-
 		// try to set the struct
-		fmt.Printf("%#v", src.Type().Kind().String())
-
 		if src.Type() == dest.Type() && false {
 			if !dest.CanSet() {
 				return nil
@@ -87,15 +72,7 @@ func merge(dest reflect.Value, src reflect.Value) error {
 				continue
 			}
 
-			// if anonymous struct, the fieldbyname won't return the actual field names,
-			// but the fields are called reflect.ptr instead. Don't know for sure,
-			// is this is an bug in Go or just something to implement.
-
-			fmt.Println("TEST", dest.Type().Field(i).Name)
-
 			if df := dest.FieldByName(tField.Name); df.Kind() == 0 {
-				fmt.Printf("Could not find dest field %s.\n", tField.Name)
-				fmt.Println("Kind 0")
 				continue
 			} else if err := merge(df, src.Field(i)); err != nil {
 				return err
@@ -122,15 +99,10 @@ func merge(dest reflect.Value, src reflect.Value) error {
 			dest.Set(x)
 		}
 	default:
-		fmt.Printf("SET %#v %#v\n", src, dest)
-
 		if !dest.CanSet() {
-			fmt.Println("CANNOTSET")
 			return nil
 		}
 		dest.Set(src)
-
-		fmt.Printf("SET %#v %#v\n", src, dest)
 	}
 
 	return nil

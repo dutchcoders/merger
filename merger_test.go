@@ -87,7 +87,8 @@ var tests = []Test{
 
 func TestXxx(t *testing.T) {
 	for _, test := range tests {
-		if err := Merge(&test.Dest, test.Source); err != nil {
+		// because it is an interface, it is behaving differently
+		if err := Merge(test.Dest, test.Source); err != nil {
 			t.Errorf("Merge failed: %s", err.Error())
 		}
 
